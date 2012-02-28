@@ -1,4 +1,4 @@
-<?php namespace ovasen\test;
+<?php namespace ovasen\core\test;
 
 class TheTestClass {
     public function __construct() {
