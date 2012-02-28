@@ -1,6 +1,8 @@
 <?php namespace ovasen\core;
 
-class ClassLoader {
+require dirname( __FILE__ ) . DIRECTORY_SEPARATOR . "singleton.php";
+
+class ClassLoader implements Singleton {
     const NAMESPACE_DELIMITER = "\\";
     const PHP_EXT = ".php";
 
@@ -26,7 +28,7 @@ class ClassLoader {
         if(is_null(self::$instance)) {
             self::$instance = new self;
         }
-         return self::$instance;
+        return self::$instance;
     }
 
     private function includeFile($file_name, $class_name) {
@@ -101,8 +103,9 @@ class ClassLoader {
     }
 
     public function fileNameToFqClassName($file_name, $check_exists=true) {
-        if (substr($file_name, 0 , -4) !== self::PHP_EXT) {
-            $file_name .= self::PHP_EXT;
+        if (substr($file_name, -4) === self::PHP_EXT) {
+            $file_name = substr($file_name, 0, -4);
+            echo "file name: " . $file_name . PHP_EOL;
         }
         if (substr($file_name, 0, 1) === DIRECTORY_SEPARATOR) {
             // absolute path, match ROOT_PATH or fail
@@ -118,15 +121,22 @@ class ClassLoader {
         }
         
         $parts = explode(DIRECTORY_SEPARATOR, $file_name);
+        $parts = array_merge(array(self::$name_space), $parts);
+        
         $class_name = array_pop($parts);
         if(!$this->checkParts($parts)) {
             return false;
         }
         $path = implode(self::NAMESPACE_DELIMITER, $parts);
         
+        echo "path: " . print_r($path, true) . PHP_EOL;
+        echo "class name: " . print_r($class_name, true) . PHP_EOL;
+        echo "parts: " . print_r($parts, true) . PHP_EOL;
+        
         $cn = array();
         $cap_next = true;
-        foreach ($class_name as $c) {
+        for ($i = 0; $i < strlen($class_name); ++$i) {
+            $c = $class_name{$i};
             if ($c == "_") {
                 $cap_next = true;
             }
