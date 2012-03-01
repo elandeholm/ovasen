@@ -1,19 +1,20 @@
 <?php namespace ovasen\core;
 
 abstract class Singleton {
-    static protected $instance;
-
-    // protected: you may override me but you cannot call me from the outside!
-    protected function __construct() {
-        if (isset(self::$instance)) {
-            trigger_error("There can be only one " . get_class($this));
-        }
-        self::$instance = $this;
+    protected static $instances = array();
+    
+    private function __construct($args) {
+        // echo "Hello from constructor for " . get_class($this) . PHP_EOL;
+        $this->configure($args);
     }
 
-    public static function getInstance($args = null) {
-        if (!isset(self::$instance)) self::$instance = new static($args);
-        else if ($args !== null) trigger_error("Singleton is not reconfigurable");
-        return self::$instance;
+    abstract protected function configure($args);
+
+    public static function getInstance($args=null) {
+        $client = get_called_class();
+
+        if (!isset(static::$instances[$client])) static::$instances[$client] = new static($args);
+        else if ($args !== null) throw new \Exception ("Singleton is not reconfigurable: " . $client);
+        return static::$instances[$client];
     }
 }
