@@ -1,7 +1,7 @@
 <?php namespace ovasen\core;
 
 use ovasen\core\Test;
-use ovasen\core\ClassLoader as CL; // or name conflict ensues
+use ovasen\core\ClassLoader;
 
 // Silly example of unit testing
 // If the ClassLoader was broken enough to not pass
@@ -13,8 +13,8 @@ class ClassLoaderTester extends Test
     public function testFileNameToFqClassName() {
         $file_name = "core" . DIRECTORY_SEPARATOR . "singleton.php";
         $class_name = $this->instance->fileNameToFqClassName($file_name);
-        $reference = "ovasen" . CL::NAMESPACE_DELIMITER .
-            "core" . CL::NAMESPACE_DELIMITER . "Singleton";
+        $reference = "ovasen" . ClassLoader::NAMESPACE_DELIMITER .
+            "core" . ClassLoader::NAMESPACE_DELIMITER . "Singleton";
         
         $this->assert(!strcmp($class_name, $reference));
     }
