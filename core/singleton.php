@@ -1,16 +1,16 @@
 <?php namespace ovasen\core;
 
-interface Singleton {
-// typical implementation:
-//    
-//    public static function getInstance() {
-//        if(is_null(self::$instance)) {
-//            self::$instance = new self;
-//        }
-//        return self::$instance;
-//    }
-//
-// TBD: make Singleton an abstract class instead and extend instead of implement
-    
-    static public function getInstance();
+abstract class Singleton {
+    static protected $instance;
+
+    // protected: you may override me but you cannot call me from the outside!
+    protected function __construct() {
+        ;
+    }
+
+    public static function getInstance($args = null) {
+        if (!isset(self::$instance)) self::$instance = new static($args);
+        else if ($args !== null) trigger_error("Singleton is not reconfigurable");
+        return self::$instance;
+    }
 }
