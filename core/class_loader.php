@@ -1,7 +1,5 @@
 <?php namespace ovasen\core;
 
-require dirname( __FILE__ ) . DIRECTORY_SEPARATOR . "singleton.php";
-
 class ClassLoader extends Singleton {
     const NAMESPACE_DELIMITER = "\\";
     const PHP_EXT = ".php";
@@ -10,10 +8,8 @@ class ClassLoader extends Singleton {
     static private $root_path;
     static private $name_space;
     
-    public function __construct($args=array()) {
-        parent::__construct();
+    protected function configure($args=array()) {
         list (self::$root_path, self::$name_space) = $args;
-        self::$instance = $this;
         self::$cache = array();
         spl_autoload_register(array($this, "load"));
     }
