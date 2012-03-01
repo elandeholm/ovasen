@@ -2,42 +2,29 @@
 
 require dirname( __FILE__ ) . DIRECTORY_SEPARATOR . "singleton.php";
 
-class ClassLoader implements Singleton {
+class ClassLoader extends Singleton {
     const NAMESPACE_DELIMITER = "\\";
     const PHP_EXT = ".php";
 
-    static private $instance;
     static private $cache;
     static private $root_path;
     static private $name_space;
     
-    public function __construct($root_path, $name_space) {
-        if (is_null(self::$instance)) {
-            self::$instance = $this;
-            self::$cache = array();
-            self::$root_path = $root_path;
-            self::$name_space = $name_space;
-            spl_autoload_register(array($this, "load"));
-        }
-        else {
-            trigger_error("There can be only one ClassLoader"); 
-        }
-    }
-
-    public static function getInstance() {
-        if(is_null(self::$instance)) {
-            self::$instance = new self;
-        }
-        return self::$instance;
+    public function __construct($args=array()) {
+        parent::__construct();
+        list (self::$root_path, self::$name_space) = $args;
+        self::$instance = $this;
+        self::$cache = array();
+        spl_autoload_register(array($this, "load"));
     }
 
     private function includeFile($file_name, $class_name) {
-        if (!isset($this->cache[$class_name])) {
+        if (!isset(self::$cache[$class_name])) {
             if (!file_exists($file_name)) {
                 return false;
             }
             include $file_name;
-            $this->cache[$class_name] = $file_name;
+            self::$cache[$class_name] = $file_name;
         }
         return true;
     }
@@ -105,7 +92,6 @@ class ClassLoader implements Singleton {
     public function fileNameToFqClassName($file_name, $check_exists=true) {
         if (substr($file_name, -4) === self::PHP_EXT) {
             $file_name = substr($file_name, 0, -4);
-            echo "file name: " . $file_name . PHP_EOL;
         }
         if (substr($file_name, 0, 1) === DIRECTORY_SEPARATOR) {
             // absolute path, match ROOT_PATH or fail
@@ -128,10 +114,6 @@ class ClassLoader implements Singleton {
             return false;
         }
         $path = implode(self::NAMESPACE_DELIMITER, $parts);
-        
-        echo "path: " . print_r($path, true) . PHP_EOL;
-        echo "class name: " . print_r($class_name, true) . PHP_EOL;
-        echo "parts: " . print_r($parts, true) . PHP_EOL;
         
         $cn = array();
         $cap_next = true;
@@ -168,3 +150,5 @@ class ClassLoader implements Singleton {
         }
     }
 }
+
+@ClassLoader::getInstance(array(ROOT_PATH, NAME_SPACE));
