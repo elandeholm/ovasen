@@ -29,7 +29,6 @@
 
 class Test
 {
-    private $all_passed;
     private $tester_class_name;
     private $tester_methods;
     private $testee_class_name; // testee class name derived from tester ditto
@@ -127,35 +126,37 @@ class Test
     }
     
     public function doTests($stop_on_error = true) {
-        $this->all_passed = true;
-        $report = array();
+        $report = array('tester' => $this->tester_class_name,
+                'testee' => $this->testee_class_name);
+        
+        $all_passed = true;
         $stop = false;
+        $tests = array();
+        
         foreach ($this->tester_methods as $method) {
-            echo "$method" . PHP_EOL;
             $te = null;
-            try {
+            if ($stop) {
+                $tests[$method] = "not ran";
+            }
+            else try {
                 $this->$method();
             }
             catch (TestException $te) {
-                $this->all_passed = false;
+                $all_passed = false;
                 $stop = $stop_on_error;
                 $traces = $te->getTrace();
                 $trace = $traces[1]; // $traces[0] is us, [1] is the client
-                $report[$method]["testee"] = $this->testee_class_name;
-                $report[$method]["tester"] = $this->tester_class_name;
-                $report[$method]["message"] = $te->getMessage();
-                $report[$method]["file"] = $trace["file"];
-                $report[$method]["line"] = $trace["line"];
+                $tests[$method]["message"] = $te->getMessage();
+                $tests[$method]["file"] = $trace["file"];
+                $tests[$method]["line"] = $trace["line"];
 //                $report[$method]["snippet"] = self::getSnippet($trace["file"], $trace["line"]);
-                $report[$method]["xyzzy"] = get_class($this->instance);
             }
-            if (!($te instanceof TestException)) {
-                $report[$method] = "passed";
-            }
-            if ($stop) {
-                break;
+            if (!$stop && !($te instanceof TestException)) {
+                $tests[$method] = "passed";
             }
         }
+        $report["tests"] = $tests;
+        $report["all passed"] = $all_passed;
         return $report;
     }
 }
