@@ -24,8 +24,6 @@
 //   $report = $tester_instance->doTests()
 // o This method is defined in the Test base class and it returns a simple
 //   array based report of all the tests discovered and ran
-// o Once you have called $tester_instance->doTests(), you may query
-//   $tester_instance->passed(), which returns true iff all tests passed
 
 class Test
 {
