@@ -15,7 +15,7 @@ class CachedReflector extends Singleton
         $class_key = $class_name->getClassKey();
         $target_mtime = filemtime($class_file_path);
         $cached_file = ROOT_PATH . DIRECTORY_SEPARATOR . "cache"
-            . DIRECTORY_SEPARATOR . "reflection" . $class_key;
+            . DIRECTORY_SEPARATOR . "reflection" . DIRECTORY_SEPARATOR . $class_key;
 
         // because of the semantics of the ClassLoader, we never expect register()
         // to be called other than on class load, ie. just once
