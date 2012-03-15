@@ -1,150 +1,93 @@
 <?php namespace ovasen\core;
 
-class ClassLoader extends Singleton {
-    const NAMESPACE_DELIMITER = "\\";
-    const PHP_EXT = ".php";
+require "reflected.php";
+require "class_name.php";
 
-    static private $cache;
-    static private $root_path;
-    static private $name_space;
-    
+use ovasen\core\ClassName;
+
+class ClassLoader extends Singleton {
+    private static $cache;
+    private static $loaders;
+
     protected function configure($args=array()) {
-        list (self::$root_path, self::$name_space) = $args;
+        if (isset($args["loaders"])) {
+            self::$loaders = $args["loaders"];
+        }
         self::$cache = array();
         spl_autoload_register(array($this, "load"));
     }
 
-    private function includeFile($file_name, $class_name) {
-        if (!isset(self::$cache[$class_name])) {
-            if (!file_exists($file_name)) {
-                return false;
-            }
-            include $file_name;
-            self::$cache[$class_name] = $file_name;
-        }
-        return true;
+    public function addLoader($name_space, $dir_name) {
+        self::$loaders[$name_space][] = $dir_name;
     }
 
-    private function checkParts(&$parts) {
-        //echo "checkParts: " . print_r($parts, true) . PHP_EOL;        
-        
-        if (count($parts) < 1 || strcasecmp($parts[0], self::$name_space)) {
-            return false;
+    public function debug() {
+        return "ClassLoader: " . print_r ( array( self::$cache, self::$loaders), true) . PHP_EOL;
+    }
+
+    private function includeClassFile(ClassName $class_name, $class_file_path, $name_space_key, $sub_dir) {
+        $class_key = $class_name->getClassKey();
+        if (isset($cache[$class_key])) {
+            throw new ClassLoaderException("Trying to include class file twice: " . $class_file_path);
         }
-        $new_parts = array();
-        $skip = true; // ignore self::$name_space part
-        foreach ($parts as $part) {
-            if (!$skip) {
-                $lc_part = strtolower($part);
-                if (!ctype_alnum($lc_part)) {
-                    return false;
+        // we know the class file exists at this point
+        require $class_file_path;
+        $full_class_name = $class_name->getFullClassName();
+        $implements = class_implements( $class_name->getFullClassName(), false);
+        if (isset($implements["ovasen\\core\\Reflected"])) {
+            // marker interface Reflected means the class wants to be reflected
+            CachedReflector::register($class_name, $class_file_path);
+        }
+
+        self::$cache[$class_key] = array($name_space_key, $sub_dir, $class_file_path);
+    }
+
+    private function findClassFile(ClassName $class_name) {
+        $name_space_parts = $class_name->getNameSpaceParts();
+        $file_base_name = $class_name->getFileBaseName();
+        $path_parts = array();
+        $match = false;
+
+        while (count($name_space_parts) > 0) {
+            $name_space_key = implode(ClassName::NAMESPACE_DELIMITER, $name_space_parts);
+            if (isset(self::$loaders[$name_space_key])) {
+                // [name_space_key] set, so expect match
+                $match = true;
+                $sub_dir = "";
+                if (count($path_parts) > 0) {
+                    $sub_dir = implode(DIRECTORY_SEPARATOR, array_reverse($path_parts)) . DIRECTORY_SEPARATOR;
                 }
-                $new_parts[] = $lc_part;
+                foreach (self::$loaders[$name_space_key] as $path) {
+                    $class_file_path = $path . DIRECTORY_SEPARATOR . $sub_dir . $file_base_name;
+                    if (file_exists($class_file_path)) {
+                        return array( $class_file_path, $name_space_key, $sub_dir );
+                    }
+                }
             }
-            else {
-                $skip = false;
-            }
+
+            $path_parts[] = array_pop($name_space_parts);
         }
-        $parts = $new_parts;
-        
-        return true;
+        if ($match === true) {
+            // we had at least one name space match but failed to find the class file
+            throw new ClassLoaderException("Expected to find class file: " .  $file_name);
+        }
+        // otherwise just pass the bucket to the next auto_loader
+        return false;
     }
 
-    public function fqClassNameToFileName($fq_class_name, $check_exists=true) {
-        $parts = explode(self::NAMESPACE_DELIMITER, $fq_class_name);
-        $class_name = array_pop($parts);
-        
-        if (!$this->checkParts($parts)) {
-            return false; // Not us, pass the bucket to the next autoloader
-        }
-        
-        // echo "class_name is $class_name" . PHP_EOL;
-        
-        $cn = array();
-        for ($i = 0; $i < strlen($class_name); ++$i) {
-            $c = $class_name{$i};
-            if ($i > 0 && ctype_upper($c)) {
-                $cn[] = "_";
-            }
-            $cn[] = strtolower($c);
-        }
+    public function load($class_name) {
+        $class_name = new ClassName($class_name);
+        list ($class_file_name, $name_space_key, $sub_dir) = $this->findClassFile($class_name);
 
-        // echo "cn is: " . print_r($cn, true) . PHP_EOL;        
-        
-        $path = "";
-        foreach ($parts as $part) {
-            $path .= strtolower($part) . DIRECTORY_SEPARATOR; 
+        if ($class_file_name !== false) {
+            $this->includeClassFile($class_name, $class_file_name, $name_space_key, $sub_dir);
         }
-
-        $file_name = sprintf("%s%s%s%s%s",
-            ROOT_PATH, DIRECTORY_SEPARATOR, $path, implode($cn), self::PHP_EXT);
-        
-        if ($check_exists && !file_exists($file_name)) {
+        else {
             return false;
-        }
-        return $file_name;
-    }
-
-    public function fileNameToFqClassName($file_name, $check_exists=true) {
-        if (substr($file_name, -4) === self::PHP_EXT) {
-            $file_name = substr($file_name, 0, -4);
-        }
-        if (substr($file_name, 0, 1) === DIRECTORY_SEPARATOR) {
-            // absolute path, match ROOT_PATH or fail
-            $root_path = substr($file_name, 0, strlen(ROOT_PATH));
-            if($root_path !== ROOT_PATH) {
-                return false;
-            }
-            $file_name = substr($file_name, strlen(ROOT_PATH));
-            if (count($file_name) < 1 || $file_name[0] !== DIRECTORY_SEPARATOR) {
-                return false;
-            }
-            $file_name = substr($file_name, 1);
-        }
-        
-        $parts = explode(DIRECTORY_SEPARATOR, $file_name);
-        $parts = array_merge(array(self::$name_space), $parts);
-        
-        $class_name = array_pop($parts);
-        if(!$this->checkParts($parts)) {
-            return false;
-        }
-        $path = implode(self::NAMESPACE_DELIMITER, $parts);
-        
-        $cn = array();
-        $cap_next = true;
-        for ($i = 0; $i < strlen($class_name); ++$i) {
-            $c = $class_name{$i};
-            if ($c == "_") {
-                $cap_next = true;
-            }
-            else {
-                $l = strtolower($c);
-                $cn[] = $cap_next ? strtoupper($c) : $l;
-                $cap_next = false;
-            }
-        }
-        $fq_class_name = sprintf("%s%s%s%s%s",
-            self::$name_space, self::NAMESPACE_DELIMITER,
-            $path, self::NAMESPACE_DELIMITER, implode($cn));
-        if ($check_exists) {
-            $file_name = $this->fqClassNameToFileName($fq_class_name);
-            if (!file_exists($file_name)) {
-                return false;
-            }
-        }
-        return $fq_class_name;
-    }
-    
-    public function load($fq_class_name) {
-        $file_name = $this->fqClassNameToFileName($fq_class_name);
-        if ($file_name === false) {
-            return false;
-        }
-        if ($this->includeFile($file_name, $fq_class_name) === false) {
-            trigger_error("Can't load class: $fq_class_name, file: $file_name does not exist!");
         }
     }
 }
 
-@ClassLoader::getInstance(array(ROOT_PATH, NAME_SPACE));
+class ClassLoaderException extends \Exception { };
+
+@ClassLoader::getInstance();

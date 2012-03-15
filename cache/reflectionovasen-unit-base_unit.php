@@ -1,0 +1,1 @@
+{"file":"\/home\/emanuel\/Development\/ovasen\/unit\/base_unit.php","implements":{"ovasen\\core\\Reflected":"ovasen\\core\\Reflected"},"parents":[],"vars":[],"methods":["setClassName","setReflected","getClassName","getReflected","getFullName","__construct","debug","connectFrom","disconnectFrom"]}
